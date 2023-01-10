@@ -10,7 +10,7 @@
 from unittest.mock import call
 import pytest
 from tests.lib import mockMagic
-from tests.data.device_tools_unit import validate_ruter_bgp, validate_intf, validate_true
+from tests.data.device_tools_unit import validate_ruter_bgp, validate_intf, validate_true, device_info, device_info_failure
 from ansible_collections.arista.cvp.plugins.module_utils.device_tools import DeviceInventory, CvDeviceTools
 from ansible_collections.arista.cvp.plugins.module_utils.resources.modules.fields import ModuleOptionValues
 
@@ -18,6 +18,9 @@ mock_m = mockMagic.MockModule()
 mockCvpClient = mockMagic.MockCvpClient()
 mockCvpApi = mockMagic.MockCvpApi()
 mockCvpClient.mock_cvpClient.api.validate_config_for_device.side_effect = mockCvpApi.validate_config_for_device
+mockCvpClient.mock_cvpClient.api.device_decommissioning.side_effect = mockCvpApi.device_decommissioning
+mockCvpClient.mock_cvpClient.api.device_decommissioning_status_get_one.side_effect = mockCvpApi.device_decommissioning_status_get_one
+# side_effect tells that it should call mocked method
 
 device_data = [{
     'serialNumber': '0123F2E4462997EB155B7C50EC148767',
@@ -28,16 +31,20 @@ device_data = [{
     'parentContainerName': 'TP_LEAF1',
     'configlets': ['']}] # this is dummy device_data that has no effect
 
+# status = ''
+
 @pytest.mark.generic
 class TestValidateConfig():
 
     # mocking
-    def apply_mocks(self, mocker):
+    def apply_mocks(self, mocker):# mocker is a magicmock object which is used for patching
         mock_ansible_module = mock_m.apply_mock_patch(mocker,
-        'ansible_collections.arista.cvp.plugins.module_utils.device_tools.AnsibleModule')
+                                                      'ansible_collections.arista.cvp.plugins.module_utils.'
+                                                      'device_tools.AnsibleModule')
         mock__get_configlet_info = mock_m.apply_mock_patch(mocker,
-            'ansible_collections.arista.cvp.plugins.module_utils.device_tools.' \
-                'CvDeviceTools._CvDeviceTools__get_configlet_info')
+                                                           'ansible_collections.arista.cvp.plugins.'
+                                                           'module_utils.device_tools.'
+                                                           'CvDeviceTools._CvDeviceTools__get_configlet_info')
         return mock_ansible_module, mock__get_configlet_info
 
     def test_warning_stop_on_warning(self, mocker):
@@ -203,3 +210,55 @@ class TestValidateConfig():
         result = cv_tools.validate_config(user_inventory=user_topology,
             validate_mode=ModuleOptionValues.VALIDATE_MODE_IGNORE)
         assert result[0].results == expected_result
+
+@pytest.mark.state
+class TestState():
+
+    def apply_mocks(self, mocker):  # mocker is a magicmock object which is used for patching
+        mock_ansible_module = mock_m.apply_mock_patch(mocker,
+                                                      'ansible_collections.arista.cvp.plugins.module_utils.device_tools.AnsibleModule')
+        # mocking __get_device from CvDeviceTools class
+        mock__get_device = mock_m.apply_mock_patch(mocker, 'ansible_collections.arista.cvp.plugins.'
+                                                           'module_utils.device_tools.CvDeviceTools.'
+                                                           '_CvDeviceTools__get_device')
+        mock__get_device = mock_m.apply_mock_patch(mocker, 'ansible_collections.arista.cvp.plugins.'
+                                                           'module_utils.device_tools.CvDeviceTools.'
+                                                           '_CvDeviceTools__get_device')
+        return mock_ansible_module, mock__get_device
+
+
+    def test_state_absent_success(self, mocker):
+        # status = 'DECOMMISSIONING_STATUS_SUCCESS'
+        mock_ansible_module, mock__get_device = self.apply_mocks(mocker)
+        user_topology = DeviceInventory(data=device_data)
+        cv_tools = CvDeviceTools(mockCvpClient.mock_cvpClient, mock_ansible_module)
+        mock__get_device.return_value = device_info  # mocked for get_device_facts, device_info is in tests/datadevice_tools_unit.py
+        # TODO: need to check cvp_api.get_device_by_serial output through lab for device_infol
+        result = cv_tools.decommission_device(user_inventory=user_topology)
+        assert result[0].success == True
+        assert result[0].changed == True
+
+    # def test_state_absent_in_progress(self, mocker):
+    #     status = 'DECOMMISSIONING_STATUS_IN_PROGRESS'
+    #     mock_ansible_module, mock__get_device = self.apply_mocks(mocker)
+    #     user_topology = DeviceInventory(data=device_data)
+    #     cv_tools = CvDeviceTools(mockCvpClient.mock_cvpClient, mock_ansible_module)
+    #     mock__get_device.return_value = device_info  # mocked for get_device_facts, device_info is in tests/datadevice_tools_unit.py
+    #     # TODO: need to check cvp_api.get_device_by_serial output through lab for device_infol
+    #     result = cv_tools.decommission_device(user_inventory=user_topology)
+    #     assert result[0].success == True
+    #     assert result[0].changed == True
+
+    def test_state_absent_failure(self, mocker):
+        # status = 'DECOMMISSIONING_STATUS_FAILURE'
+        mock_ansible_module, mock__get_device = self.apply_mocks(mocker)
+        user_topology = DeviceInventory(data=device_data)
+        cv_tools = CvDeviceTools(mockCvpClient.mock_cvpClient, mock_ansible_module)
+        mock__get_device.return_value = device_info_failure   # device_info_failure contains wrong serial_number
+        # TODO: need to check cvp_api.get_device_by_serial output for device_info
+        _ = cv_tools.decommission_device(user_inventory=user_topology)
+        expected_fail_json_call_msg = '----'
+        expected_call = [call.fail_json(msg=expected_fail_json_call_msg)]
+        assert mock_ansible_module.mock_calls == expected_call
+
+    # def test_state_factory_reset(self):

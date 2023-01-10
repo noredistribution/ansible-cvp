@@ -155,3 +155,21 @@ return_validate_config_for_device = {
     'return_validate_intf' : return_validate_intf,
     'return_validate_ruter_bgp' : return_validate_ruter_bgp
 }
+
+device_info = {
+    'serialNumber': '0123F2E4462997EB155B7C50EC148767',
+    'systemMacAddress': '50:08:00:b1:5b:0b',
+    'key': '50:08:00:b1:5b:0b',
+    'fqdn': 'tp-avd-leaf2',
+    'hostname': 'tp-avd-leaf2',
+    'parentContainerName': 'TP_LEAF1',
+    'configlets': ['']} # this is dummy device_data that has no effect
+
+device_info_failure = {
+    'serialNumber': '0123F2E4462997EB155B7C50EC148768',
+    'systemMacAddress': '50:08:00:b1:5b:0b',
+    'key': '50:08:00:b1:5b:0b',
+    'fqdn': 'tp-avd-leaf2',
+    'hostname': 'tp-avd-leaf2',
+    'parentContainerName': 'TP_LEAF1',
+    'configlets': ['']}
