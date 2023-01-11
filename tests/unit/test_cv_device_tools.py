@@ -221,9 +221,6 @@ class TestState():
         mock__get_device = mock_m.apply_mock_patch(mocker, 'ansible_collections.arista.cvp.plugins.'
                                                            'module_utils.device_tools.CvDeviceTools.'
                                                            '_CvDeviceTools__get_device')
-        mock__get_device = mock_m.apply_mock_patch(mocker, 'ansible_collections.arista.cvp.plugins.'
-                                                           'module_utils.device_tools.CvDeviceTools.'
-                                                           '_CvDeviceTools__get_device')
         return mock_ansible_module, mock__get_device
 
 
@@ -260,5 +257,3 @@ class TestState():
         expected_fail_json_call_msg = '----'
         expected_call = [call.fail_json(msg=expected_fail_json_call_msg)]
         assert mock_ansible_module.mock_calls == expected_call
-
-    # def test_state_factory_reset(self):
