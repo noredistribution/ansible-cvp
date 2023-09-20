@@ -541,8 +541,17 @@ class CvDeviceTools(object):
         list
             List of configlet in the correct order
         """
-        new_configlets_list = []
-        reconciled_configlet = None
+        new_configlets_list = []   
+        # Identify if device has reconciled configlet applied to it     
+        reconciled_configlet = [x for x in configlet_applied_to_device_list if x.reconciled is True]
+        if reconciled_configlet:
+            # Remove reconciled configlet from configlet_applied_to_device_list (if exists)
+            MODULE_LOGGER.debug(
+                    "Removing the configlet %s from the current configlet list and keeping it in the dedicated reconciled list.",
+                    str(reconciled_configlet[0].name),
+                )
+            configlet_applied_to_device_list.remove(reconciled_configlet[0])
+
         for configlet in configlet_playbook_list:
             new_configlet = self.__get_configlet_info(configlet_name=configlet)
             if new_configlet is None:
@@ -555,7 +564,8 @@ class CvDeviceTools(object):
 
             # If the configlet is not applied, add it to the new list
             if configlet not in [x.name for x in configlet_applied_to_device_list]:
-                new_configlets_list.append(new_configlet)
+                if configlet not in [x[Api.generic.NAME] for x in new_configlets_list] and configlet not in [x.name for x in reconciled_configlet]:
+                    new_configlets_list.append(new_configlet)
 
             # If the confilet is already applied, remove it from the main list and add it to the end of the new list
             else:
@@ -564,15 +574,13 @@ class CvDeviceTools(object):
                     str(configlet),
                 )
                 for x in configlet_applied_to_device_list:
-                    if x.name == configlet and x.reconciled is True:
-                        reconciled_configlet = x.data
-                        configlet_applied_to_device_list.remove(x)
-                        break
                     if x.name == configlet:
                         configlet_applied_to_device_list.remove(x)
-                        new_configlets_list.append(new_configlet)
-        if reconciled_configlet is not None:
-            new_configlets_list.append(reconciled_configlet)
+                        if configlet not in [x[Api.generic.NAME] for x in new_configlets_list] and configlet not in [x.name for x in reconciled_configlet]:
+                                new_configlets_list.append(new_configlet)
+                        break
+        if reconciled_configlet:
+            new_configlets_list.append(self.__get_configlet_info(configlet_name=reconciled_configlet[0].name))
         configlets_attached_get_configlet_info = [
             self.__get_configlet_info(configlet_name=x.name)
             for x in configlet_applied_to_device_list
